@@ -73,8 +73,8 @@ provider:
 #    - exclude-me-dir/**
 
 functions:
-  hello:
-    handler: handler.hello
+  handler:
+    handler: handler.handler
     events:
       - http: ANY /
       - http: "ANY {proxy+}"
