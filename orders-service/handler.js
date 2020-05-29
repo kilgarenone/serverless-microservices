@@ -69,6 +69,8 @@ async function methodHandler(request, response) {
 }
 
 async function server(request, response) {
+  // DO THIS ALSO TO ENABLE CORS! besides setting 'cors: true' in serverless.yml
+  response.setHeader("Access-Control-Allow-Origin", "*");
   try {
     send(response, 200, await methodHandler(request));
   } catch (error) {
