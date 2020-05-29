@@ -34,8 +34,9 @@ provider:
         - dynamodb:PutItem
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
+        - lambda:InvokeFunction
       Resource:
-        - { "Fn::GetAtt": ["OrdersDynamoDBTable", "Arn"] }
+        - "*" # TODO: Specify resources at a granular level. But what's the pattern/syntax???
   environment:
     ORDERS_TABLE: ${self:custom.tableName}
 
@@ -78,7 +79,11 @@ functions:
     events:
       - http:
           path: /
-          method: ANY
+          method: get
+          cors: true # <-- CORS!
+      - http:
+          path: /
+          method: post
           cors: true # <-- CORS!
 
 #    The following are a few example events you can configure
