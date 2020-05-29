@@ -1,7 +1,5 @@
 module.exports.handler = async (event, context, callback) => {
-  console.log("event:", event);
   callback(null, {
-    statusCode: 200,
-    body: JSON.stringify(event),
+    statusCode: Math.random() < 0.5 ? 400 : 200,
   });
 };

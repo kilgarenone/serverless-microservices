@@ -5,7 +5,7 @@ const { json, send, sendError } = require("micro");
 const AWS = require("aws-sdk");
 const { v4: uuid } = require("uuid");
 
-const { ORDERS_TABLE, PAYMENTS_SERVICE_ENDPOINT } = process.env;
+const { ORDERS_TABLE, PAYMENTS_SERVICE_FUNCTION } = process.env;
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const lambda = new AWS.Lambda();
 /**
@@ -23,7 +23,7 @@ async function postHandler(request) {
     // res.status(400).json({ error: '"name" must be a string' });
   }
 
-  const params = {
+  const orderParams = {
     TableName: ORDERS_TABLE,
     Item: {
       orderId,
@@ -34,25 +34,46 @@ async function postHandler(request) {
   };
 
   const paymentParams = {
-    FunctionName: "payments-service-dev-handler",
-    InvocationType: "RequestResponse",
-    Payload: JSON.stringify({ hello: "bro payment man" }),
+    FunctionName: PAYMENTS_SERVICE_FUNCTION,
+    Payload: JSON.stringify({}),
     LogType: "Tail",
   };
 
-  let paymentResponse;
   try {
-    paymentResponse = await lambda.invoke(paymentParams).promise();
-  } catch (paymentErr) {
-    throw paymentErr;
+    await dynamoDb.put(orderParams).promise();
+  } catch (err) {
+    throw err;
   }
 
   try {
-    // await dynamoDb.put(params).promise();
+    const paymentResponse = await lambda.invoke(paymentParams).promise();
 
-    return { params: paymentResponse };
-  } catch (err) {
-    throw err;
+    const paymentStatus = JSON.parse(paymentResponse.Payload).statusCode;
+
+    const updateOrderParams = {
+      TableName: ORDERS_TABLE,
+      Key: {
+        orderId,
+      },
+      ExpressionAttributeNames: {
+        "#S": "status",
+      },
+      ExpressionAttributeValues: {
+        ":s": paymentStatus,
+      },
+      ReturnValues: "UPDATED_NEW",
+      UpdateExpression: "SET #S = :s",
+    };
+
+    const orderItem = await dynamoDb.update(updateOrderParams).promise();
+    console.log("orderItem:", orderItem);
+
+    return {
+      ...orderItem,
+      paymentStatus: JSON.parse(paymentResponse.Payload).statusCode,
+    };
+  } catch (paymentErr) {
+    throw paymentErr;
   }
 }
 /**

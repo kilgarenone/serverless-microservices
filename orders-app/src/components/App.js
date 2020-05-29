@@ -6,7 +6,20 @@ import {
   animals,
 } from "unique-names-generator";
 
+const ORDER_STATE = {
+  0: { desc: "Created", bgColor: "yellow" },
+  200: { desc: "Confirmed", bgColor: "lightgreen" },
+  400: { desc: "Canceled", bgColor: "lightgrey" },
+  1: { desc: "Delivered", bgColor: "green" },
+};
+
 class Order extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = { orderStatus: props.details.status };
+  }
+
   async componentDidMount() {
     if (!this.props.details.newOrder) return;
 
@@ -14,22 +27,22 @@ class Order extends Component {
       details: { newOrder, ...orderDetails },
     } = this.props;
 
-    const response = await fetch(process.env.ORDERS_ENDPOINT, {
+    const { paymentStatus } = await fetch(process.env.ORDERS_ENDPOINT, {
       method: "POST",
       body: JSON.stringify(orderDetails),
     }).then((res) => res.json());
+
+    this.setState({ orderStatus: paymentStatus });
   }
 
-  render({ details: { itemName, skuId, qty, timeStamp, status } }) {
+  render({ details: { itemName, skuId, qty, timeStamp } }, { orderStatus }) {
     return (
       <tr>
         <td>{itemName}</td>
         <td>{skuId}</td>
         <td>{qty}</td>
-        <td
-          style={{ backgroundColor: status === "Created" ? "yellow" : "green" }}
-        >
-          {status}
+        <td style={{ backgroundColor: ORDER_STATE[orderStatus].bgColor }}>
+          {ORDER_STATE[orderStatus].desc}
         </td>
         <td>{new Date(timeStamp).toLocaleString()}</td>
       </tr>
@@ -46,7 +59,7 @@ export class App extends Component {
     qty: 0,
     orders: [],
     timeStamp: null,
-    status: "",
+    status: 0,
   };
 
   async componentDidMount() {
@@ -56,17 +69,18 @@ export class App extends Component {
 
     this.setState({ orders: Items });
   }
+
   createOrder = () => {
-    (this.isCreatingOrder = true),
-      this.setState({
-        itemName: uniqueNamesGenerator({
-          dictionaries: [adjectives, colors, animals],
-        }),
-        skuId: Math.random().toString(36).substring(7),
-        qty: Math.floor(Math.random() * 10 + 1),
-        timeStamp: new Date().toISOString(),
-        status: "Created",
-      });
+    this.isCreatingOrder = true;
+    this.setState({
+      itemName: uniqueNamesGenerator({
+        dictionaries: [adjectives, colors, animals],
+      }),
+      skuId: Math.random().toString(36).substring(7),
+      qty: Math.floor(Math.random() * 10 + 1),
+      timeStamp: new Date().toISOString(),
+      status: 0,
+    });
   };
 
   submitOrder = () => {
@@ -106,7 +120,8 @@ export class App extends Component {
             <th>Status</th>
             <th>Created on</th>
           </tr>
-          {!!orders.length && orders.map((order) => <Order details={order} />)}
+          {!!orders.length &&
+            orders.map((order) => <Order key={order.skuId} details={order} />)}
         </table>
       </div>
     );

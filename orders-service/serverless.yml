@@ -39,6 +39,7 @@ provider:
         - "*" # TODO: Specify resources at a granular level. But what's the pattern/syntax???
   environment:
     ORDERS_TABLE: ${self:custom.tableName}
+    PAYMENTS_SERVICE_FUNCTION: payments-service-dev-handler
 
 # you can overwrite defaults here
 #  stage: dev
