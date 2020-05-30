@@ -1,0 +1,29 @@
+service: websocket-service
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  region: us-east-1
+  environment:
+    APIG_ENDPOINT:
+      Fn::Join:
+        - ""
+        - - Ref: WebsocketsApi
+          - .execute-api.
+          - Ref: AWS::Region
+          - .amazonaws.com/
+          - ${self:provider.stage}
+
+functions:
+  handler:
+    handler: handler.handler
+    events:
+      - websocket:
+          route: $connect
+      - websocket:
+          route: routeA
+      - websocket:
+          route: $default
+      - websocket:
+          route: $disconnect

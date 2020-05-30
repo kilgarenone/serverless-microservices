@@ -16,7 +16,7 @@ const lambda = new AWS.Lambda();
  * handle POST requests
  */
 async function postHandler(request) {
-  const { itemName, skuId, qty, timeStamp } = await json(request);
+  const { itemName, skuId, qty, createdAt, status } = await json(request);
   const orderId = uuid();
   // TODO
   if (typeof qty !== "number") {
@@ -30,6 +30,8 @@ async function postHandler(request) {
       itemName,
       skuId,
       qty,
+      createdAt,
+      status,
     },
   };
 
@@ -66,7 +68,6 @@ async function postHandler(request) {
     };
 
     const orderItem = await dynamoDb.update(updateOrderParams).promise();
-    console.log("orderItem:", orderItem);
 
     return {
       ...orderItem,
@@ -121,3 +122,13 @@ async function server(request, response) {
 }
 
 module.exports.handler = serverless(server);
+
+module.exports.triggerStream = (event, context, callback) => {
+  console.log("trigger stream was called");
+
+  const eventData = event.Records[0];
+  //console.log(eventData);
+
+  console.log(eventData.dynamodb.NewImage);
+  callback(null, null);
+};

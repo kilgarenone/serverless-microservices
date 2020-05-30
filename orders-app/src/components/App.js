@@ -35,7 +35,7 @@ class Order extends Component {
     this.setState({ orderStatus: paymentStatus });
   }
 
-  render({ details: { itemName, skuId, qty, timeStamp } }, { orderStatus }) {
+  render({ details: { itemName, skuId, qty, createdAt } }, { orderStatus }) {
     return (
       <tr>
         <td>{itemName}</td>
@@ -44,7 +44,7 @@ class Order extends Component {
         <td style={{ backgroundColor: ORDER_STATE[orderStatus].bgColor }}>
           {ORDER_STATE[orderStatus].desc}
         </td>
-        <td>{new Date(timeStamp).toLocaleString()}</td>
+        <td>{new Date(createdAt).toLocaleString()}</td>
       </tr>
     );
   }
@@ -58,11 +58,15 @@ export class App extends Component {
     skuId: "",
     qty: 0,
     orders: [],
-    timeStamp: null,
+    createdAt: null,
     status: 0,
   };
 
   async componentDidMount() {
+    this.websocket = new WebSocket(process.env.SERVERLESS_WEBSOCKET_ENDPOINT);
+    this.websocket.onopen = () => {
+      console.log("hello client socket");
+    };
     const { Items } = await fetch(process.env.ORDERS_ENDPOINT).then((res) =>
       res.json()
     );
@@ -78,7 +82,7 @@ export class App extends Component {
       }),
       skuId: Math.random().toString(36).substring(7),
       qty: Math.floor(Math.random() * 10 + 1),
-      timeStamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       status: 0,
     });
   };
@@ -94,7 +98,6 @@ export class App extends Component {
   };
 
   render(_, { itemName, skuId, qty, orders }) {
-    console.log("orders:", orders);
     return (
       <div>
         <button onClick={this.createOrder}>Create order</button>
@@ -118,7 +121,7 @@ export class App extends Component {
             <th>SKU</th>
             <th>Qty</th>
             <th>Status</th>
-            <th>Created on</th>
+            <th>Created at</th>
           </tr>
           {!!orders.length &&
             orders.map((order) => <Order key={order.skuId} details={order} />)}
