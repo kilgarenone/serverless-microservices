@@ -3,24 +3,70 @@
 const serverless = require("aws-serverless-micro");
 const { json, send, sendError } = require("micro");
 const AWS = require("aws-sdk");
-const { v4: uuid } = require("uuid");
 
-const { ORDERS_TABLE, PAYMENTS_SERVICE_FUNCTION } = process.env;
+const {
+  ORDERS_TABLE,
+  PAYMENTS_SERVICE_FUNCTION,
+  WEBSOCKET_SERVICE_FUNCTION,
+} = process.env;
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const lambda = new AWS.Lambda();
 /**
  * Credit: https://github.com/vercel/micro/issues/16#issuecomment-193518395
  */
 
+async function orderAndPaymentWorkFlow(orderParams) {
+  const paymentParams = {
+    FunctionName: PAYMENTS_SERVICE_FUNCTION,
+    Payload: JSON.stringify({}),
+    LogType: "Tail",
+  };
+
+  try {
+    // create a new order record
+    await dynamoDb.put(orderParams).promise();
+
+    // execute payment flow for this order
+    const paymentResponse = await lambda.invoke(paymentParams).promise();
+
+    const paymentStatus = JSON.parse(paymentResponse.Payload).statusCode;
+
+    const updateOrderParams = {
+      TableName: ORDERS_TABLE,
+      Key: {
+        orderId: orderParams.Item.orderId,
+      },
+      ExpressionAttributeNames: {
+        "#S": "status",
+      },
+      ExpressionAttributeValues: {
+        ":s": paymentStatus,
+      },
+      ReturnValues: "UPDATED_NEW",
+      UpdateExpression: "SET #S = :s",
+    };
+
+    // update the 'status' of this particular order based on the result of payment
+    const orderItem = await dynamoDb.update(updateOrderParams).promise();
+
+    return {
+      ...orderItem,
+      paymentStatus: JSON.parse(paymentResponse.Payload).statusCode,
+    };
+  } catch (err) {
+    // TODO
+  }
+}
 /**
  * handle POST requests
  */
 async function postHandler(request) {
-  const { itemName, skuId, qty, createdAt, status } = await json(request);
-  const orderId = uuid();
+  const { orderId, itemName, skuId, qty, createdAt, status } = await json(
+    request
+  );
   // TODO
   if (typeof qty !== "number") {
-    // res.status(400).json({ error: '"name" must be a string' });
+    // res.status(400).json({ error: '"qty" must be a string' });
   }
 
   const orderParams = {
@@ -35,47 +81,9 @@ async function postHandler(request) {
     },
   };
 
-  const paymentParams = {
-    FunctionName: PAYMENTS_SERVICE_FUNCTION,
-    Payload: JSON.stringify({}),
-    LogType: "Tail",
-  };
+  await orderAndPaymentWorkFlow(orderParams);
 
-  try {
-    await dynamoDb.put(orderParams).promise();
-  } catch (err) {
-    throw err;
-  }
-
-  try {
-    const paymentResponse = await lambda.invoke(paymentParams).promise();
-
-    const paymentStatus = JSON.parse(paymentResponse.Payload).statusCode;
-
-    const updateOrderParams = {
-      TableName: ORDERS_TABLE,
-      Key: {
-        orderId,
-      },
-      ExpressionAttributeNames: {
-        "#S": "status",
-      },
-      ExpressionAttributeValues: {
-        ":s": paymentStatus,
-      },
-      ReturnValues: "UPDATED_NEW",
-      UpdateExpression: "SET #S = :s",
-    };
-
-    const orderItem = await dynamoDb.update(updateOrderParams).promise();
-
-    return {
-      ...orderItem,
-      paymentStatus: JSON.parse(paymentResponse.Payload).statusCode,
-    };
-  } catch (paymentErr) {
-    throw paymentErr;
-  }
+  return { order: orderParams.Item };
 }
 /**
  * handle GET requests
@@ -87,9 +95,12 @@ async function getHandler(request) {
   };
 
   try {
-    const orders = await dynamoDb.scan(params).promise();
-    return orders;
-  } catch (err) {}
+    const { Items } = await dynamoDb.scan(params).promise();
+    Items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return Items;
+  } catch (err) {
+    throw err;
+  }
 }
 
 /**
@@ -123,12 +134,19 @@ async function server(request, response) {
 
 module.exports.handler = serverless(server);
 
-module.exports.triggerStream = (event, context, callback) => {
-  console.log("trigger stream was called");
-
+module.exports.triggerStream = async (event, context, callback) => {
   const eventData = event.Records[0];
-  //console.log(eventData);
 
-  console.log(eventData.dynamodb.NewImage);
+  const newOrderParams = {
+    FunctionName: WEBSOCKET_SERVICE_FUNCTION,
+    Payload: JSON.stringify({
+      requestContext: { routeKey: "orderStream" },
+      body: eventData.dynamodb.NewImage,
+    }),
+    LogType: "Tail",
+  };
+
+  const paymentResponse = await lambda.invoke(newOrderParams).promise();
+
   callback(null, null);
 };

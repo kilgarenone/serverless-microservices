@@ -12,7 +12,6 @@
   "dependencies": {
     "aws-sdk": "^2.685.0",
     "aws-serverless-micro": "^1.0.4",
-    "micro": "^9.3.4",
-    "uuid": "^8.1.0"
+    "micro": "^9.3.4"
   }
 }

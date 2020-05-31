@@ -5,6 +5,7 @@ import {
   colors,
   animals,
 } from "unique-names-generator";
+import { v4 as uuid } from "uuid";
 
 const ORDER_STATE = {
   0: { desc: "Created", bgColor: "yellow" },
@@ -13,47 +14,26 @@ const ORDER_STATE = {
   1: { desc: "Delivered", bgColor: "green" },
 };
 
-class Order extends Component {
-  constructor(props) {
-    super(props);
-
-    this.state = { orderStatus: props.details.status };
-  }
-
-  async componentDidMount() {
-    if (!this.props.details.newOrder) return;
-
-    const {
-      details: { newOrder, ...orderDetails },
-    } = this.props;
-
-    const { paymentStatus } = await fetch(process.env.ORDERS_ENDPOINT, {
-      method: "POST",
-      body: JSON.stringify(orderDetails),
-    }).then((res) => res.json());
-
-    this.setState({ orderStatus: paymentStatus });
-  }
-
-  render({ details: { itemName, skuId, qty, createdAt } }, { orderStatus }) {
-    return (
-      <tr>
-        <td>{itemName}</td>
-        <td>{skuId}</td>
-        <td>{qty}</td>
-        <td style={{ backgroundColor: ORDER_STATE[orderStatus].bgColor }}>
-          {ORDER_STATE[orderStatus].desc}
-        </td>
-        <td>{new Date(createdAt).toLocaleString()}</td>
-      </tr>
-    );
-  }
+function Order({ details: { itemName, skuId, qty, createdAt, status } }) {
+  return (
+    <tr>
+      <td>{itemName}</td>
+      <td>{skuId}</td>
+      <td>{qty}</td>
+      <td style={{ backgroundColor: ORDER_STATE[status].bgColor }}>
+        {ORDER_STATE[status].desc}
+      </td>
+      <td>{new Date(createdAt).toLocaleString()}</td>
+    </tr>
+  );
 }
+
 // eslint-disable-next-line import/prefer-default-export
 export class App extends Component {
   isCreatingOrder = false;
 
   state = {
+    orderId: "",
     itemName: "",
     skuId: "",
     qty: 0,
@@ -67,16 +47,23 @@ export class App extends Component {
     this.websocket.onopen = () => {
       console.log("hello client socket");
     };
-    const { Items } = await fetch(process.env.ORDERS_ENDPOINT).then((res) =>
+
+    this.websocket.onmessage = ({ data }) => {
+      console.log("serverless websocket data:", JSON.parse(data));
+    };
+
+    const orders = await fetch(process.env.ORDERS_ENDPOINT).then((res) =>
       res.json()
     );
 
-    this.setState({ orders: Items });
+    this.setState({ orders });
   }
 
   createOrder = () => {
     this.isCreatingOrder = true;
+
     this.setState({
+      orderId: uuid(),
       itemName: uniqueNamesGenerator({
         dictionaries: [adjectives, colors, animals],
       }),
@@ -87,11 +74,16 @@ export class App extends Component {
     });
   };
 
-  submitOrder = () => {
+  submitOrder = async () => {
     const { orders, ...orderDetails } = this.state;
 
+    await fetch(process.env.ORDERS_ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify(orderDetails),
+    }).then((res) => res.json());
+
     this.setState((prevState) => ({
-      orders: [{ newOrder: true, ...orderDetails }].concat(prevState.orders),
+      orders: [{ ...orderDetails }].concat(prevState.orders),
     }));
 
     this.createOrder();
@@ -124,7 +116,9 @@ export class App extends Component {
             <th>Created at</th>
           </tr>
           {!!orders.length &&
-            orders.map((order) => <Order key={order.skuId} details={order} />)}
+            orders.map((order) => (
+              <Order key={order.orderId} details={order} />
+            ))}
         </table>
       </div>
     );

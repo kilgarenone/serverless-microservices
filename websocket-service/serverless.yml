@@ -6,6 +6,8 @@ provider:
   stage: dev
   region: us-east-1
   environment:
+    CONNECTIONS_TABLE:
+      Ref: ConnectionsTable
     APIG_ENDPOINT:
       Fn::Join:
         - ""
@@ -14,6 +16,17 @@ provider:
           - Ref: AWS::Region
           - .amazonaws.com/
           - ${self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:DeleteItem
+        - dynamodb:GetItem
+        - dynamodb:Scan
+        - dynamodb:PutItem
+      Resource:
+        Fn::GetAtt:
+          - ConnectionsTable
+          - Arn
 
 functions:
   handler:
@@ -22,8 +35,24 @@ functions:
       - websocket:
           route: $connect
       - websocket:
-          route: routeA
-      - websocket:
           route: $default
       - websocket:
           route: $disconnect
+
+resources:
+  Resources:
+    ConnectionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: connectionId
+            AttributeType: S
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: connectionId
+            KeyType: HASH
+        SSESpecification:
+          SSEEnabled: true
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true

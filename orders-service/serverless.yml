@@ -24,6 +24,7 @@ provider:
   environment:
     ORDERS_TABLE: ${self:custom.tableName}
     PAYMENTS_SERVICE_FUNCTION: payments-service-dev-handler
+    WEBSOCKET_SERVICE_FUNCTION: websocket-service-dev-handler
 
 functions:
   triggerStream:
