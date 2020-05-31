@@ -8,7 +8,6 @@ const { CONNECTIONS_TABLE } = process.env;
 
 module.exports.handler = async function (event, context) {
   const { body, requestContext: { connectionId, routeKey } = {} } = event;
-  console.log("EVENT: \n" + JSON.stringify(event, null, 2));
 
   switch (routeKey) {
     case "$connect":

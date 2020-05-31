@@ -28,7 +28,6 @@ function Order({ details: { itemName, skuId, qty, createdAt, status } }) {
   );
 }
 
-// eslint-disable-next-line import/prefer-default-export
 export class App extends Component {
   isCreatingOrder = false;
 
@@ -48,8 +47,20 @@ export class App extends Component {
       console.log("hello client socket");
     };
 
-    this.websocket.onmessage = ({ data }) => {
-      console.log("serverless websocket data:", JSON.parse(data));
+    this.websocket.onmessage = ({ data: d }) => {
+      const data = JSON.parse(d);
+
+      if (!data.orderId) return;
+
+      const orderId = data.orderId.S;
+      const orders = [...this.state.orders];
+      const orderIndex = orders.findIndex((order) => order.orderId === orderId);
+
+      if (orderIndex < 0) return;
+
+      orders[orderIndex].status = data.status.N;
+
+      this.setState({ orders });
     };
 
     const orders = await fetch(process.env.ORDERS_ENDPOINT).then((res) =>
@@ -77,14 +88,14 @@ export class App extends Component {
   submitOrder = async () => {
     const { orders, ...orderDetails } = this.state;
 
+    this.setState((prevState) => ({
+      orders: [{ ...orderDetails }].concat(prevState.orders),
+    }));
+
     await fetch(process.env.ORDERS_ENDPOINT, {
       method: "POST",
       body: JSON.stringify(orderDetails),
     }).then((res) => res.json());
-
-    this.setState((prevState) => ({
-      orders: [{ ...orderDetails }].concat(prevState.orders),
-    }));
 
     this.createOrder();
   };
