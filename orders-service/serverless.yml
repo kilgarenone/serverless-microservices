@@ -49,6 +49,10 @@ functions:
           path: /
           method: post
           cors: true # <-- CORS!
+      - http:
+          path: /
+          method: put
+          cors: true # <-- CORS!
 
 resources:
   Resources:

@@ -7,25 +7,39 @@ import {
 } from "unique-names-generator";
 import { v4 as uuid } from "uuid";
 
-const ORDER_STATE = {
+const ORDER_STATES = {
   0: { desc: "Created", bgColor: "yellow" },
   200: { desc: "Confirmed", bgColor: "lightgreen" },
+  201: { desc: "Delivered", bgColor: "cyan" },
   400: { desc: "Canceled", bgColor: "lightgrey" },
   1: { desc: "Delivered", bgColor: "green" },
 };
 
-function Order({ details: { itemName, skuId, qty, createdAt, status } }) {
-  return (
-    <tr>
-      <td>{itemName}</td>
-      <td>{skuId}</td>
-      <td>{qty}</td>
-      <td style={{ backgroundColor: ORDER_STATE[status].bgColor }}>
-        {ORDER_STATE[status].desc}
-      </td>
-      <td>{new Date(createdAt).toLocaleString()}</td>
-    </tr>
-  );
+class Order extends Component {
+  cancelOrder = async () => {
+    await fetch(process.env.ORDERS_ENDPOINT, {
+      method: "PUT",
+      body: JSON.stringify({ orderId: this.props.details.orderId }),
+    }).then((res) => res.json());
+  };
+
+  render({ details: { itemName, skuId, qty, createdAt, status } }) {
+    console.log("status:", status);
+    return (
+      <tr>
+        <td>{itemName}</td>
+        <td>{skuId}</td>
+        <td>{qty}</td>
+        <td style={{ backgroundColor: ORDER_STATES[status].bgColor }}>
+          {ORDER_STATES[status].desc}
+        </td>
+        <td>{new Date(createdAt).toLocaleString()}</td>
+        <td>
+          {status == 200 && <button onClick={this.cancelOrder}>Cancel</button>}
+        </td>
+      </tr>
+    );
+  }
 }
 
 export class App extends Component {
@@ -49,6 +63,7 @@ export class App extends Component {
 
     this.websocket.onmessage = ({ data: d }) => {
       const data = JSON.parse(d);
+      console.log("data:", data);
 
       if (!data.orderId) return;
 
@@ -92,12 +107,12 @@ export class App extends Component {
       orders: [{ ...orderDetails }].concat(prevState.orders),
     }));
 
+    this.createOrder();
+
     await fetch(process.env.ORDERS_ENDPOINT, {
       method: "POST",
       body: JSON.stringify(orderDetails),
     }).then((res) => res.json());
-
-    this.createOrder();
   };
 
   render(_, { itemName, skuId, qty, orders }) {
@@ -125,6 +140,7 @@ export class App extends Component {
             <th>Qty</th>
             <th>Status</th>
             <th>Created at</th>
+            <th>Actions</th>
           </tr>
           {!!orders.length &&
             orders.map((order) => (

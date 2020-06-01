@@ -49,6 +49,38 @@ async function orderAndPaymentWorkFlow(orderParams) {
     // update the 'status' of this particular order based on the result of payment
     const orderItem = await dynamoDb.update(updateOrderParams).promise();
 
+    // TODO: Figure out how to not hold anything back. Some kinda background worker? Queue?
+    // if 'Confirmed', set 'Delivered' after 5 seconds
+    if (paymentStatus == 200) {
+      const updateOrderParams = {
+        TableName: ORDERS_TABLE,
+        Key: {
+          orderId: orderParams.Item.orderId,
+        },
+        ExpressionAttributeNames: {
+          "#S": "status",
+        },
+        ExpressionAttributeValues: {
+          ":s": 201,
+        },
+        ConditionExpression: "#S < :s", // TODO: better syntax...
+        ReturnValues: "UPDATED_NEW",
+        UpdateExpression: "SET #S = :s",
+      };
+
+      await new Promise((resolve, reject) => {
+        setTimeout(async () => {
+          try {
+            const orderItem = await dynamoDb
+              .update(updateOrderParams)
+              .promise();
+            resolve();
+          } catch (err) {
+            reject();
+          }
+        }, 5000);
+      });
+    }
     return {
       ...orderItem,
       paymentStatus: JSON.parse(paymentResponse.Payload).statusCode,
@@ -102,6 +134,34 @@ async function getHandler(request) {
     throw err;
   }
 }
+/**
+ * handle PUT requests
+ */
+async function putHandler(request) {
+  const { orderId } = await json(request);
+
+  const updateOrderParams = {
+    TableName: ORDERS_TABLE,
+    Key: {
+      orderId,
+    },
+    ExpressionAttributeNames: {
+      "#S": "status",
+    },
+    ExpressionAttributeValues: {
+      ":s": 400,
+    },
+    ReturnValues: "UPDATED_NEW",
+    UpdateExpression: "SET #S = :s",
+  };
+
+  try {
+    await dynamoDb.update(updateOrderParams).promise();
+    return { statusCode: 200 };
+  } catch (err) {
+    throw err;
+  }
+}
 
 /**
  * Check the request method and use postHandler or getHandler (or other method handlers)
@@ -111,6 +171,8 @@ async function methodHandler(request, response) {
     switch (request.method) {
       case "POST":
         return await postHandler(request);
+      case "PUT":
+        return await putHandler(request);
       case "GET":
         return await getHandler(request);
       default:
