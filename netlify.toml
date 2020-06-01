@@ -1,5 +1,5 @@
 [build]
   base = "orders-app/"
-  publish = "orders-app/dist/"
+  publish = "dist/"
   command = "npm run build"
   environment = { ORDERS_ENDPOINT = "https://4cirzad19a.execute-api.us-east-1.amazonaws.com/dev/", SERVERLESS_WEBSOCKET_ENDPOINT = "wss://w4rypwu69g.execute-api.us-east-1.amazonaws.com/dev" }
