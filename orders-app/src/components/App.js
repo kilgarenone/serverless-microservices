@@ -13,7 +13,7 @@ import { v4 as uuid } from "uuid";
 
 const ORDER_STATES = {
   0: { desc: "Created", bgColor: "yellow" },
-  200: { desc: "Confirmed", bgColor: "lightgreen" },
+  200: { desc: "Confirmed", bgColor: "greenyellow" },
   201: { desc: "Delivered", bgColor: "cyan" },
   400: { desc: "Canceled", bgColor: "lightgrey" },
   1: { desc: "Delivered", bgColor: "green" },
