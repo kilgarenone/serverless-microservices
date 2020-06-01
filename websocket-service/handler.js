@@ -1,4 +1,6 @@
+// eslint-disable-next-line import/no-unresolved
 const AWS = require("aws-sdk");
+
 const apig = new AWS.ApiGatewayManagementApi({
   endpoint: process.env.APIG_ENDPOINT,
 });
@@ -6,7 +8,7 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 const { CONNECTIONS_TABLE } = process.env;
 
-module.exports.handler = async function (event, context) {
+module.exports.handler = async (event) => {
   const { body, requestContext: { connectionId, routeKey } = {} } = event;
 
   switch (routeKey) {
@@ -18,7 +20,7 @@ module.exports.handler = async function (event, context) {
             connectionId,
             // Expire the connection an hour later. This is optional, but recommended.
             // You will have to decide how often to time out and/or refresh the ttl.
-            ttl: parseInt(Date.now() / 1000 + 3600),
+            ttl: parseInt(Date.now() / 1000 + 3600, 10),
           },
         })
         .promise();
@@ -31,7 +33,7 @@ module.exports.handler = async function (event, context) {
         })
         .promise();
       break;
-    case "orderStream":
+    case "orderStream": {
       const params = {
         TableName: CONNECTIONS_TABLE,
         Select: "ALL_ATTRIBUTES",
@@ -41,16 +43,17 @@ module.exports.handler = async function (event, context) {
       const connectionIds = await dynamoDb.scan(params).promise();
 
       await Promise.all(
-        connectionIds.Items.map(({ connectionId }) =>
+        connectionIds.Items.map(({ connectionId: id }) =>
           apig
             .postToConnection({
-              ConnectionId: connectionId,
+              ConnectionId: id,
               Data: JSON.stringify(body),
             })
             .promise()
         )
       );
       break;
+    }
     case "$default":
     default:
     // console.log("hellow stream from websocket:", body);

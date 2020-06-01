@@ -48,11 +48,35 @@ functions:
       - http:
           path: /
           method: post
-          cors: true # <-- CORS!
+          cors:
+            origin: "*"
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+              - authority
+              - cache-control
+              - pragma
+              - user-agent
       - http:
           path: /
           method: put
-          cors: true # <-- CORS!
+          cors:
+            origin: "*"
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+              - authority
+              - cache-control
+              - pragma
+              - user-agent
 
 resources:
   Resources:

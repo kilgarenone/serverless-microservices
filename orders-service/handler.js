@@ -1,5 +1,3 @@
-"use strict";
-
 const serverless = require("aws-serverless-micro");
 const { json, send, sendError } = require("micro");
 const AWS = require("aws-sdk");
@@ -47,12 +45,13 @@ async function orderAndPaymentWorkFlow(orderParams) {
     };
 
     // update the 'status' of this particular order based on the result of payment
-    const orderItem = await dynamoDb.update(updateOrderParams).promise();
+    let orderItem = await dynamoDb.update(updateOrderParams).promise();
 
-    // TODO: Figure out how to not hold anything back. Some kinda background worker? Queue?
+    // TODO: Figure out how to not hold anything back within this function for faster latency. Some kinda background worker? Queue??
     // if 'Confirmed', set 'Delivered' after 5 seconds
+    // eslint-disable-next-line eqeqeq
     if (paymentStatus == 200) {
-      const updateOrderParams = {
+      const deliveredOrderParams = {
         TableName: ORDERS_TABLE,
         Key: {
           orderId: orderParams.Item.orderId,
@@ -63,7 +62,7 @@ async function orderAndPaymentWorkFlow(orderParams) {
         ExpressionAttributeValues: {
           ":s": 201,
         },
-        ConditionExpression: "#S < :s", // TODO: better syntax...
+        ConditionExpression: "#S < :s", // TODO: find out better syntax...
         ReturnValues: "UPDATED_NEW",
         UpdateExpression: "SET #S = :s",
       };
@@ -71,9 +70,7 @@ async function orderAndPaymentWorkFlow(orderParams) {
       await new Promise((resolve, reject) => {
         setTimeout(async () => {
           try {
-            const orderItem = await dynamoDb
-              .update(updateOrderParams)
-              .promise();
+            orderItem = await dynamoDb.update(deliveredOrderParams).promise();
             resolve();
           } catch (err) {
             reject();
@@ -120,19 +117,15 @@ async function postHandler(request) {
 /**
  * handle GET requests
  */
-async function getHandler(request) {
+async function getHandler() {
   const params = {
     TableName: ORDERS_TABLE, // give it your table name
     Select: "ALL_ATTRIBUTES",
   };
 
-  try {
-    const { Items } = await dynamoDb.scan(params).promise();
-    Items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    return Items;
-  } catch (err) {
-    throw err;
-  }
+  const { Items } = await dynamoDb.scan(params).promise();
+  Items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return Items;
 }
 /**
  * handle PUT requests
@@ -155,38 +148,27 @@ async function putHandler(request) {
     UpdateExpression: "SET #S = :s",
   };
 
-  try {
-    await dynamoDb.update(updateOrderParams).promise();
-    return { statusCode: 200 };
-  } catch (err) {
-    throw err;
-  }
+  await dynamoDb.update(updateOrderParams).promise();
+  return { statusCode: 200 };
 }
 
 /**
  * Check the request method and use postHandler or getHandler (or other method handlers)
  */
 async function methodHandler(request, response) {
-  try {
-    switch (request.method) {
-      case "POST":
-        return await postHandler(request);
-      case "PUT":
-        return await putHandler(request);
-      case "GET":
-        return await getHandler(request);
-      default:
-        send(response, 405, "Invalid method");
-        break;
-    }
-  } catch (error) {
-    throw error;
+  switch (request.method) {
+    case "POST":
+      return postHandler(request);
+    case "PUT":
+      return putHandler(request);
+    case "GET":
+      return getHandler(request);
+    default:
+      return send(response, 405, "Invalid method");
   }
 }
 
 async function server(request, response) {
-  // DO THIS TOO TO ENABLE CORS! besides setting 'cors: true' in serverless.yml
-  response.setHeader("Access-Control-Allow-Origin", "*");
   try {
     send(response, 200, await methodHandler(request));
   } catch (error) {
@@ -208,7 +190,7 @@ module.exports.triggerStream = async (event, context, callback) => {
     LogType: "Tail",
   };
 
-  const paymentResponse = await lambda.invoke(newOrderParams).promise();
+  await lambda.invoke(newOrderParams).promise();
 
   callback(null, null);
 };

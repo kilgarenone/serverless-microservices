@@ -1,3 +1,7 @@
+/* eslint-disable react/prop-types */
+/* eslint-disable react/destructuring-assignment */
+/* eslint-disable eqeqeq */
+/* eslint-disable max-classes-per-file */
 import { h, Component } from "preact";
 import {
   uniqueNamesGenerator,
@@ -24,7 +28,6 @@ class Order extends Component {
   };
 
   render({ details: { itemName, skuId, qty, createdAt, status } }) {
-    console.log("status:", status);
     return (
       <tr>
         <td>{itemName}</td>
@@ -35,25 +38,50 @@ class Order extends Component {
         </td>
         <td>{new Date(createdAt).toLocaleString()}</td>
         <td>
-          {status == 200 && <button onClick={this.cancelOrder}>Cancel</button>}
+          {status == 200 && (
+            <button type="button" onClick={this.cancelOrder}>
+              Cancel
+            </button>
+          )}
         </td>
       </tr>
     );
   }
 }
 
+const ORDER_PROPS = {
+  orderId: "",
+  itemName: "",
+  skuId: "",
+  qty: 0,
+  createdAt: null,
+  status: 0,
+};
+
+function normalizeOrderObject(data) {
+  const dynamoDbOrderObject = JSON.parse(data);
+
+  return Object.keys(ORDER_PROPS).reduce((acc, curr) => {
+    const value =
+      dynamoDbOrderObject[curr][Object.keys(dynamoDbOrderObject[curr])[0]];
+
+    acc[curr] = value;
+
+    return acc;
+  }, {});
+}
+
 export class App extends Component {
   isCreatingOrder = false;
 
-  state = {
-    orderId: "",
-    itemName: "",
-    skuId: "",
-    qty: 0,
-    orders: [],
-    createdAt: null,
-    status: 0,
-  };
+  constructor() {
+    super();
+
+    this.state = {
+      orders: [],
+      ...ORDER_PROPS,
+    };
+  }
 
   async componentDidMount() {
     this.websocket = new WebSocket(process.env.SERVERLESS_WEBSOCKET_ENDPOINT);
@@ -61,19 +89,26 @@ export class App extends Component {
       console.log("hello client socket");
     };
 
-    this.websocket.onmessage = ({ data: d }) => {
-      const data = JSON.parse(d);
-      console.log("data:", data);
+    this.websocket.onmessage = ({ data }) => {
+      const order = normalizeOrderObject(data);
 
-      if (!data.orderId) return;
+      console.log("data:", order);
 
-      const orderId = data.orderId.S;
+      const { orderId, status } = order;
+
+      if (!orderId) return;
+
       const orders = [...this.state.orders];
-      const orderIndex = orders.findIndex((order) => order.orderId === orderId);
+      const orderIndex = orders.findIndex((o) => o.orderId === orderId);
 
-      if (orderIndex < 0) return;
+      if (orderIndex < 0) {
+        this.setState((prevState) => ({
+          orders: [order].concat(prevState.orders),
+        }));
+        return;
+      }
 
-      orders[orderIndex].status = data.status.N;
+      orders[orderIndex].status = status;
 
       this.setState({ orders });
     };
@@ -101,6 +136,7 @@ export class App extends Component {
   };
 
   submitOrder = async () => {
+    // eslint-disable-next-line no-unused-vars
     const { orders, ...orderDetails } = this.state;
 
     this.setState((prevState) => ({
@@ -118,7 +154,9 @@ export class App extends Component {
   render(_, { itemName, skuId, qty, orders }) {
     return (
       <div>
-        <button onClick={this.createOrder}>Create order</button>
+        <button type="button" onClick={this.createOrder}>
+          Create order
+        </button>
         {this.isCreatingOrder && (
           <div>
             <div>
@@ -130,7 +168,9 @@ export class App extends Component {
             <div>
               <strong>Quantity:</strong> {qty}
             </div>
-            <button onClick={this.submitOrder}>Submit order</button>
+            <button type="button" onClick={this.submitOrder}>
+              Submit order
+            </button>
           </div>
         )}
         <table>
