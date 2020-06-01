@@ -2,4 +2,6 @@
   base = "orders-app/"
   publish = "dist/"
   command = "npm run build"
+
+[context.production]
   environment = { ORDERS_ENDPOINT = "https://4cirzad19a.execute-api.us-east-1.amazonaws.com/dev/", SERVERLESS_WEBSOCKET_ENDPOINT = "wss://w4rypwu69g.execute-api.us-east-1.amazonaws.com/dev" }
