@@ -1,6 +1,5 @@
 const webpack = require("webpack");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const CopyWebpackPlugin = require("copy-webpack-plugin");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
@@ -176,7 +175,6 @@ module.exports = {
     // default to delete output.path
     new CleanWebpackPlugin(),
     // literally copy and paste files
-    new CopyWebpackPlugin({ patterns: [{ from: "src/assets/favicon" }] }),
     // so that file hashes don't change unexpectedly and bust cache unnecessarily
     new webpack.HashedModuleIdsPlugin(),
     // Extract css into separate .css file
