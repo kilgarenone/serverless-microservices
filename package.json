@@ -8,7 +8,7 @@
     "build-client": "cd orders-app && npm install && npm run build",
     "lint": "npm run lint:js",
     "lint:js": "eslint '**/*.js' --fix",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run lint && ava"
   },
   "repository": {
     "type": "git",
@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/kilgarenone/serverless-microservices#readme",
   "devDependencies": {
+    "ava": "^3.8.2",
     "babel-eslint": "^10.1.0",
     "eslint": "^7.1.0",
     "eslint-config-airbnb": "^18.1.0",
@@ -30,8 +31,10 @@
     "eslint-plugin-jsx-a11y": "^6.2.3",
     "eslint-plugin-prettier": "^3.1.3",
     "eslint-plugin-react": "^7.19.0",
+    "node-fetch": "^2.6.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.0.4",
-    "prettier-eslint": "^10.1.1"
+    "prettier-eslint": "^10.1.1",
+    "test-listen": "^1.1.0"
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable import/no-extraneous-dependencies */
 const ProgressBarPlugin = require("progress-bar-webpack-plugin");
 const Dotenv = require("dotenv-webpack");
 

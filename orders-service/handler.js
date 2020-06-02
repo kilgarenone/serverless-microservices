@@ -151,7 +151,7 @@ async function putHandler(request) {
 /**
  * Check the request method and use postHandler or getHandler (or other method handlers)
  */
-async function methodHandler(request, response) {
+async function methodHandler(request) {
   switch (request.method) {
     case "POST":
       return postHandler(request);
@@ -160,7 +160,7 @@ async function methodHandler(request, response) {
     case "GET":
       return getHandler(request);
     default:
-      return send(response, 405, "Invalid method");
+      throw createError(405, "Invalid method");
   }
 }
 
@@ -175,6 +175,9 @@ async function server(request, response) {
 }
 
 module.exports.handler = serverless(server);
+
+module.exports.methodHandler = methodHandler;
+module.exports.postHandler = postHandler;
 
 module.exports.triggerStream = async (event, context, callback) => {
   const eventData = event.Records[0];

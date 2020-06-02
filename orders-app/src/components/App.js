@@ -92,25 +92,22 @@ export class App extends Component {
     this.websocket.onmessage = ({ data }) => {
       const order = normalizeOrderObject(data);
 
-      console.log("data:", order);
-
       const { orderId, status } = order;
 
       if (!orderId) return;
 
-      const orders = [...this.state.orders];
-      const orderIndex = orders.findIndex((o) => o.orderId === orderId);
+      this.setState((prevState) => {
+        const orders = [...prevState.orders];
 
-      if (orderIndex < 0) {
-        this.setState((prevState) => ({
-          orders: [order].concat(prevState.orders),
-        }));
-        return;
-      }
+        const orderIndex = orders.findIndex((o) => o.orderId === orderId);
 
-      orders[orderIndex].status = status;
+        if (orderIndex < 0) {
+          return { orders: [order].concat(prevState.orders) };
+        }
 
-      this.setState({ orders });
+        orders[orderIndex].status = status;
+        return { orders };
+      });
     };
 
     const orders = await fetch(process.env.ORDERS_ENDPOINT).then((res) =>
