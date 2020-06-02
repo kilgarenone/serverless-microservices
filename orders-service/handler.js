@@ -1,5 +1,5 @@
 const serverless = require("aws-serverless-micro");
-const { json, send, sendError } = require("micro");
+const { json, send, sendError, createError } = require("micro");
 const AWS = require("aws-sdk");
 
 const {
@@ -20,16 +20,37 @@ async function orderAndPaymentWorkFlow(orderParams) {
     LogType: "Tail",
   };
 
-  try {
-    // create a new order record
-    await dynamoDb.put(orderParams).promise();
+  // create a new order record
+  await dynamoDb.put(orderParams).promise();
 
-    // execute payment flow for this order
-    const paymentResponse = await lambda.invoke(paymentParams).promise();
+  // execute payment flow for this order
+  const paymentResponse = await lambda.invoke(paymentParams).promise();
 
-    const paymentStatus = JSON.parse(paymentResponse.Payload).statusCode;
+  const paymentStatus = JSON.parse(paymentResponse.Payload).statusCode;
 
-    const updateOrderParams = {
+  const updateOrderParams = {
+    TableName: ORDERS_TABLE,
+    Key: {
+      orderId: orderParams.Item.orderId,
+    },
+    ExpressionAttributeNames: {
+      "#S": "status",
+    },
+    ExpressionAttributeValues: {
+      ":s": paymentStatus,
+    },
+    ReturnValues: "UPDATED_NEW",
+    UpdateExpression: "SET #S = :s",
+  };
+
+  // update the 'status' of this particular order based on the result of payment
+  let orderItem = await dynamoDb.update(updateOrderParams).promise();
+
+  // TODO: Figure out how to not hold anything back within this function for faster latency. Some kinda background worker? Queue??
+  // if 'Confirmed', set 'Delivered' after 5 seconds
+  // eslint-disable-next-line eqeqeq
+  if (paymentStatus == 200) {
+    const deliveredOrderParams = {
       TableName: ORDERS_TABLE,
       Key: {
         orderId: orderParams.Item.orderId,
@@ -38,53 +59,28 @@ async function orderAndPaymentWorkFlow(orderParams) {
         "#S": "status",
       },
       ExpressionAttributeValues: {
-        ":s": paymentStatus,
+        ":s": 201,
       },
+      ConditionExpression: "#S < :s", // TODO: find out better syntax...
       ReturnValues: "UPDATED_NEW",
       UpdateExpression: "SET #S = :s",
     };
 
-    // update the 'status' of this particular order based on the result of payment
-    let orderItem = await dynamoDb.update(updateOrderParams).promise();
-
-    // TODO: Figure out how to not hold anything back within this function for faster latency. Some kinda background worker? Queue??
-    // if 'Confirmed', set 'Delivered' after 5 seconds
-    // eslint-disable-next-line eqeqeq
-    if (paymentStatus == 200) {
-      const deliveredOrderParams = {
-        TableName: ORDERS_TABLE,
-        Key: {
-          orderId: orderParams.Item.orderId,
-        },
-        ExpressionAttributeNames: {
-          "#S": "status",
-        },
-        ExpressionAttributeValues: {
-          ":s": 201,
-        },
-        ConditionExpression: "#S < :s", // TODO: find out better syntax...
-        ReturnValues: "UPDATED_NEW",
-        UpdateExpression: "SET #S = :s",
-      };
-
-      await new Promise((resolve, reject) => {
-        setTimeout(async () => {
-          try {
-            orderItem = await dynamoDb.update(deliveredOrderParams).promise();
-            resolve();
-          } catch (err) {
-            reject();
-          }
-        }, 5000);
-      });
-    }
-    return {
-      ...orderItem,
-      paymentStatus: JSON.parse(paymentResponse.Payload).statusCode,
-    };
-  } catch (err) {
-    // TODO
+    await new Promise((resolve, reject) => {
+      setTimeout(async () => {
+        try {
+          orderItem = await dynamoDb.update(deliveredOrderParams).promise();
+          resolve();
+        } catch (err) {
+          reject();
+        }
+      }, 5000);
+    });
   }
+  return {
+    ...orderItem,
+    paymentStatus: JSON.parse(paymentResponse.Payload).statusCode,
+  };
 }
 /**
  * handle POST requests
@@ -95,7 +91,7 @@ async function postHandler(request) {
   );
   // TODO
   if (typeof qty !== "number") {
-    // res.status(400).json({ error: '"qty" must be a string' });
+    throw createError(429, "Quantity's value has to be a number");
   }
 
   const orderParams = {
@@ -169,6 +165,8 @@ async function methodHandler(request, response) {
 }
 
 async function server(request, response) {
+  response.setHeader("Access-Control-Allow-Origin", "*");
+
   try {
     send(response, 200, await methodHandler(request));
   } catch (error) {
