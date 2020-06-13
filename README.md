@@ -47,6 +47,8 @@ npm test
 
 ## Resources
 
+- https://github.com/kilgarenone/boileroom/
+
 - https://github.com/mavi888/serverless-dynamo-basic-operations
 
 - https://blog.neverendingqs.com/2019/07/01/serverless-websocket-example.html
