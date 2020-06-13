@@ -8,7 +8,26 @@
 2.  ```
     cd serverless-microservices
     ```
-3.  ```
+3.  Change into the directories that have `package.json` to install their dependencies for local development:
+
+    ```
+    cd orders-app
+    npm install
+    ```
+
+    ```
+    cd orders-service
+    npm install
+    ```
+
+4.  Assuming you already [setup](https://medium.com/@kilgarenone/setting-up-serverless-2f811486573b) 'serverless framework' in your machine, change into each of the `*-service` folder and deploy it as a 'serverless microservice'. For example, to deploy the `orders-service`:
+    ```
+    cd orders-service
+    serverless deploy
+    ```
+5.  Then change the endpoints in the `.env.*` files inside `orders-app` folder accordingly to yours.
+6.  Finally, spin up the client:
+    ```
     npm run dev
     ```
 
